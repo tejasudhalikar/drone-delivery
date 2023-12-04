@@ -1,12 +1,14 @@
-from typing import List, Tuple
 from itertools import permutations
+from typing import List, Tuple
+
 from constants import *
+
 
 def get_distance(coord1: Tuple, coord2: Tuple) -> float:
     lat_diff = coord1[0] - coord2[0]
     lon_diff = coord1[1] - coord2[1]
 
-    dist = (lat_diff**2 + lon_diff **2)**(0.5)
+    dist = (lat_diff**2 + lon_diff**2) ** (0.5)
     return dist
 
 
@@ -18,6 +20,7 @@ def get_distance(coord1: Tuple, coord2: Tuple) -> float:
 #         else:
 #             break
 #     return path_list
+
 
 async def optimize_path(coords_list: List[Tuple]) -> List[Tuple]:
     opt_path = None

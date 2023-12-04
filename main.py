@@ -1,19 +1,21 @@
-from datetime import datetime, timedelta
-from typing import Union, List, Tuple
+import json
 from collections import defaultdict
+from datetime import datetime, timedelta
+from io import BytesIO
+from typing import List, Tuple, Union
 
-from constants import *
-from path_optimiser import optimize_path
-from fastapi import Depends, FastAPI, HTTPException, status, UploadFile
+import aiohttp
+import pandas as pd
+from fastapi import Depends, FastAPI, HTTPException, UploadFile, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from pydantic import BaseModel
 from typing_extensions import Annotated
-import pandas as pd
-from io import BytesIO
-import aiohttp
-import json
+
+from constants import *
+from path_optimiser import optimize_path
+
 
 class Token(BaseModel):
     access_token: str
@@ -42,6 +44,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI()
 
 user_coords = defaultdict(list)
+
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -113,7 +116,9 @@ async def get_coordinates(addresses: pd.Series) -> List:
                 if resp.status != 200:
                     raise Exception("Invalid address found")
                 response = await resp.json()
-                coords_list.append((float(response[0]["lat"]), float(response[0]["lon"])))
+                coords_list.append(
+                    (float(response[0]["lat"]), float(response[0]["lon"]))
+                )
     return coords_list
 
 
@@ -134,23 +139,35 @@ async def login_for_access_token(
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+
 @app.post("/orders/upload")
-async def create_upload_file(current_user: Annotated[User, Depends(get_current_active_user)], file: UploadFile):
+async def create_upload_file(
+    current_user: Annotated[User, Depends(get_current_active_user)], file: UploadFile
+):
     contents = await file.read()
-    orders_df = pd.read_csv(BytesIO(contents))
-    # Replacing " " with "+" to make addresses compatible with location API
-    orders_df["address"] = orders_df["address"].map(lambda x: x.replace(" ", "+"))
-    coords_list = await get_coordinates(orders_df["address"])
-    print(coords_list)
-    optimised_path = await optimize_path(coords_list)
-    print(optimised_path)
-    globals()["user_coords"][current_user.username] = optimised_path
-    print(user_coords)
-    return {"filename": file.filename}
+    try:
+        orders_df = pd.read_csv(BytesIO(contents))
+        # Replacing " " with "+" to make addresses compatible with location API
+        orders_df["address"] = orders_df["address"].map(lambda x: x.replace(" ", "+"))
+        coords_list = await get_coordinates(orders_df["address"])
+        print(coords_list)
+        optimised_path = await optimize_path(coords_list)
+        print(optimised_path)
+        globals()["user_coords"][current_user.username] = optimised_path
+        print(user_coords)
+    except Exception as ex:
+        return {"message": "Invalid file uploaded. Please validate."}
+    else:
+        return {"filename": file.filename}
+
 
 @app.get("/orders/next")
 async def next_node(current_user: Annotated[User, Depends(get_current_active_user)]):
     print(user_coords)
     if user_coords.get(current_user.username, None):
-        return {"next": json.dumps(globals()["user_coords"][current_user.username].pop(0))}
-    return {"message": "There are no next coordinates. Either you have traversed all or not uploaded path."}
+        return {
+            "next": json.dumps(globals()["user_coords"][current_user.username].pop(0))
+        }
+    return {
+        "message": "There are no next coordinates. Either you have traversed all or not uploaded path."
+    }
