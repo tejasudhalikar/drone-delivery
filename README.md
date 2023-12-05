@@ -18,5 +18,5 @@ Follow these steps to run the drone-delivery application:
    ```bash
    uvicorn main:app --reload
    ```
-2. Upload orders by attaching a .csv file in the request body using the `/orders/upload` endpoint.
+2. Upload orders by attaching a .csv file in the request body using the `/orders/upload` endpoint. A sample orders.csv can be found at `test/orders.csv`
 3. Obtain the next delivery path by making a request to the `/orders/next` endpoint.

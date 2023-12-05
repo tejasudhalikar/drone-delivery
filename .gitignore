@@ -25,7 +25,6 @@ auth.User.json
 # Data
 data/
 export.csv
-*.csv
 *.csv.gz
 
 # Byte-compiled / optimized / DLL files
